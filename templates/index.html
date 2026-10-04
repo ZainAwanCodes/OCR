@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoClaim | OCR Claim Verification</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="background-orb orb-1"></div>
+    <div class="background-orb orb-2"></div>
+    
+    <div class="container">
+        <header>
+            <h1>AutoClaim<span class="dot">.</span></h1>
+            <p>Intelligent OCR Claim Verification</p>
+        </header>
+
+        <main>
+            <form id="uploadForm">
+                <div class="upload-grid">
+                    <div class="upload-card">
+                        <h3>ID Card</h3>
+                        <label for="id_image" class="file-label">
+                            <span class="file-icon">💳</span>
+                            <span class="file-text">Select ID Image</span>
+                            <input type="file" id="id_image" name="id_image" accept="image/*" required>
+                        </label>
+                    </div>
+
+                    <div class="upload-card">
+                        <h3>Premium Document</h3>
+                        <label for="premium_image" class="file-label">
+                            <span class="file-icon">📄</span>
+                            <span class="file-text">Select Premium Image</span>
+                            <input type="file" id="premium_image" name="premium_image" accept="image/*" required>
+                        </label>
+                    </div>
+
+                    <div class="upload-card">
+                        <h3>Medical Invoice</h3>
+                        <label for="invoice_image" class="file-label">
+                            <span class="file-icon">🏥</span>
+                            <span class="file-text">Select Invoice Image</span>
+                            <input type="file" id="invoice_image" name="invoice_image" accept="image/*" required>
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" class="submit-btn" id="submitBtn">
+                    <span>Verify Claim</span>
+                    <div class="spinner" id="spinner"></div>
+                </button>
+            </form>
+
+            <div id="results" class="results-container hidden">
+                <div class="status-banner" id="statusBanner">
+                    <h2 id="statusTitle">Verification Complete</h2>
+                </div>
+                
+                <div class="data-grid">
+                    <div class="data-card">
+                        <h4>Extracted ID Data</h4>
+                        <pre id="idData"></pre>
+                    </div>
+                    <div class="data-card">
+                        <h4>Extracted Premium Data</h4>
+                        <pre id="premiumData"></pre>
+                    </div>
+                    <div class="data-card">
+                        <h4>Extracted Invoice Data</h4>
+                        <pre id="invoiceData"></pre>
+                    </div>
+                </div>
+
+                <div class="reasons-card">
+                    <h4>Verification Details</h4>
+                    <ul id="reasonsList"></ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.querySelectorAll('input[type="file"]').forEach(input => {
+            input.addEventListener('change', function(e) {
+                let fileName = e.target.files[0].name;
+                let label = e.target.parentElement.querySelector('.file-text');
+                label.textContent = fileName;
+                label.style.color = 'var(--accent-color)';
+            });
+        });
+
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const btn = document.getElementById('submitBtn');
+            const spinner = document.getElementById('spinner');
+            const btnText = btn.querySelector('span');
+            
+            btn.classList.add('loading');
+            spinner.style.display = 'block';
+            btnText.textContent = 'Processing...';
+
+            const formData = new FormData(e.target);
+
+            try {
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                
+                if(data.error) {
+                    alert("Error: " + data.error);
+                } else {
+                    showResults(data);
+                }
+            } catch (err) {
+                alert("An error occurred during verification.");
+                console.error(err);
+            } finally {
+                btn.classList.remove('loading');
+                spinner.style.display = 'none';
+                btnText.textContent = 'Verify Claim';
+            }
+        });
+
+        function showResults(data) {
+            const results = document.getElementById('results');
+            const banner = document.getElementById('statusBanner');
+            const title = document.getElementById('statusTitle');
+            const reasonsList = document.getElementById('reasonsList');
+
+            results.classList.remove('hidden');
+
+            // Set Banner Status
+            if(data.verification.approved) {
+                banner.className = 'status-banner approved';
+                title.textContent = 'Claim Approved ✓';
+            } else {
+                banner.className = 'status-banner rejected';
+                title.textContent = 'Claim Rejected ✗';
+            }
+
+            // Fill Data
+            document.getElementById('idData').textContent = JSON.stringify(data.id_data, null, 2);
+            document.getElementById('premiumData').textContent = JSON.stringify(data.premium_data, null, 2);
+            document.getElementById('invoiceData').textContent = JSON.stringify(data.invoice_data, null, 2);
+
+            // Fill Reasons
+            reasonsList.innerHTML = '';
+            data.verification.reasons.forEach(r => {
+                let li = document.createElement('li');
+                li.textContent = r;
+                reasonsList.appendChild(li);
+            });
+
+            results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    </script>
+</body>
+</html>
